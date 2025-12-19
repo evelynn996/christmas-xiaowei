@@ -38,7 +38,7 @@ const CinematicBaubleMaterial = shaderMaterial(
       gl_Position = projectionMatrix * viewMatrix * worldPosition;
     }
   `,
-  // Fragment Shader
+  // Fragment Shader - View Independent
   `
     uniform float uTime;
 
@@ -53,37 +53,47 @@ const CinematicBaubleMaterial = shaderMaterial(
 
     void main() {
       vec3 normal = normalize(vNormal);
-      vec3 viewDir = normalize(vViewDir);
 
-      // Fresnel rim light - glass edge effect
-      float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.5);
+      // Fixed "Studio" Lighting - constant regardless of camera angle
+      vec3 lightDir = normalize(vec3(0.5, 1.0, 0.8));
 
-      // Iridescence - subtle rainbow shift based on view angle
-      vec3 iridescence = 0.5 + 0.5 * cos(uTime * 0.3 + vViewDir.yxz * 2.5 + vec3(0.0, 2.1, 4.2));
+      // Half-Lambert Diffuse - wraps light around for translucency effect
+      float NdotL = dot(normal, lightDir);
+      float softDiffuse = NdotL * 0.5 + 0.5;
 
-      // Subsurface glow - internal light scattering
-      float sss = smoothstep(0.0, 1.0, dot(viewDir, normal) * 0.6 + 0.4);
+      // Vertical gradient - simulates glass density variation
+      float verticalGrad = smoothstep(-1.0, 1.0, normal.y);
 
-      // Specular highlight
-      vec3 lightDir = normalize(vec3(1.0, 2.0, 1.5));
-      vec3 halfVec = normalize(lightDir + viewDir);
-      float spec = pow(max(dot(normal, halfVec), 0.0), 64.0);
+      // Static specular highlight based on fixed light
+      float fakeSpec = smoothstep(0.95, 1.0, NdotL);
 
-      // Combine effects
+      // World-space shimmer - attached to object, not view
+      float noiseTime = uTime * 0.5;
+      float shimmerWave = sin(vWorldPos.x * 8.0 + vWorldPos.y * 12.0 + noiseTime);
+      float sparkle = step(0.95, hash(vWorldPos.xy * 10.0 + vec2(shimmerWave))) * 0.5;
+
+      // Composition
       vec3 baseColor = vInstanceColor;
-      vec3 finalColor = baseColor * sss * 0.8;
-      finalColor += iridescence * fresnel * 0.4;
-      finalColor += vec3(1.0, 0.95, 0.9) * fresnel * 1.2;
-      finalColor += vec3(1.0) * spec * 0.8;
 
-      // Sparkle effect
-      float sparkle = step(0.97, hash(vWorldPos.xy * 30.0 + uTime * 0.2)) * fresnel;
-      finalColor += vec3(1.0) * sparkle * 2.0;
+      // Rich glass color - darker in shadows, brighter in light
+      vec3 shadowTone = baseColor * 0.8;
+      vec3 lightTone = mix(baseColor, vec3(1.0), 0.3);
 
-      // Emissive glow for bloom pickup
-      finalColor += baseColor * 0.15;
+      vec3 finalColor = mix(shadowTone, lightTone, softDiffuse);
 
-      gl_FragColor = vec4(finalColor, 0.92);
+      // Vertical gradient for depth
+      finalColor += baseColor * verticalGrad * 0.3;
+
+      // Static highlight
+      finalColor += vec3(1.0, 0.95, 0.9) * fakeSpec * 0.4;
+
+      // Sparkle
+      finalColor += vec3(1.0) * sparkle;
+
+      // Inner glow
+      finalColor += baseColor * 0.2;
+
+      gl_FragColor = vec4(finalColor, 0.95);
     }
   `
 )
@@ -155,7 +165,7 @@ function Baubles({ mixRef, count, scale }: { mixRef: { current: number }; count:
   })
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]} renderOrder={1}>
       <sphereGeometry args={[1, 32, 32]} />
       <cinematicBaubleMaterial ref={materialRef} transparent depthWrite={false} />
     </instancedMesh>

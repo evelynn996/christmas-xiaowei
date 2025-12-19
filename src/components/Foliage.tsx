@@ -44,7 +44,7 @@ export function Foliage({ mixRef }: FoliageProps) {
   })
 
   return (
-    <points geometry={geometry}>
+    <points geometry={geometry} renderOrder={0}>
       <shaderMaterial
         ref={shaderRef}
         vertexShader={foliageVertexShader}

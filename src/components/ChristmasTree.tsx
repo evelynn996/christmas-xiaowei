@@ -3,7 +3,6 @@ import { useFrame } from '@react-three/fiber'
 import { easing } from 'maath'
 import { Foliage } from './Foliage'
 import { Ornaments } from './Ornaments'
-import { TreeGlow } from './TreeGlow'
 import { Floor } from './Floor'
 
 interface ChristmasTreeProps {
@@ -22,7 +21,6 @@ export function ChristmasTree({ isTreeShape }: ChristmasTreeProps) {
 
   return (
     <group>
-      <TreeGlow mixRef={mixRef.current} />
       <Foliage mixRef={mixRef.current} />
       <Ornaments mixRef={mixRef.current} />
       <Floor mixRef={mixRef.current} />
