@@ -1,0 +1,758 @@
+import { useRef, useMemo, useLayoutEffect } from 'react'
+import { useFrame, extend, type ThreeElement } from '@react-three/fiber'
+import * as THREE from 'three'
+import { shaderMaterial } from '@react-three/drei'
+import { generateOrnamentPosition } from '../utils/math'
+
+interface OrnamentsProps {
+  mixRef: { current: number }
+}
+
+// Color palettes
+const PINK_COLORS = ['#ff69b4', '#ff1493', '#db7093', '#ffb6c1', '#ffc0cb', '#e91e8c']
+const GOLD_COLORS = ['#ffd700', '#ffb347', '#daa520']
+
+function getRandomColor(type: 'pink' | 'gold'): string {
+  const palette = type === 'pink' ? PINK_COLORS : GOLD_COLORS
+  return palette[Math.floor(Math.random() * palette.length)]
+}
+
+// Cinematic Bauble Shader - Glass-like with fresnel, iridescence, subsurface glow
+const CinematicBaubleMaterial = shaderMaterial(
+  {
+    uTime: 0,
+  },
+  // Vertex Shader
+  `
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+    varying vec3 vInstanceColor;
+
+    void main() {
+      vInstanceColor = instanceColor;
+      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
+      vWorldPos = worldPosition.xyz;
+      vViewDir = normalize(cameraPosition - worldPosition.xyz);
+      gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    }
+  `,
+  // Fragment Shader
+  `
+    uniform float uTime;
+
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+    varying vec3 vInstanceColor;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewDir);
+
+      // Fresnel rim light - glass edge effect
+      float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.5);
+
+      // Iridescence - subtle rainbow shift based on view angle
+      vec3 iridescence = 0.5 + 0.5 * cos(uTime * 0.3 + vViewDir.yxz * 2.5 + vec3(0.0, 2.1, 4.2));
+
+      // Subsurface glow - internal light scattering
+      float sss = smoothstep(0.0, 1.0, dot(viewDir, normal) * 0.6 + 0.4);
+
+      // Specular highlight
+      vec3 lightDir = normalize(vec3(1.0, 2.0, 1.5));
+      vec3 halfVec = normalize(lightDir + viewDir);
+      float spec = pow(max(dot(normal, halfVec), 0.0), 64.0);
+
+      // Combine effects
+      vec3 baseColor = vInstanceColor;
+      vec3 finalColor = baseColor * sss * 0.8;
+      finalColor += iridescence * fresnel * 0.4;
+      finalColor += vec3(1.0, 0.95, 0.9) * fresnel * 1.2;
+      finalColor += vec3(1.0) * spec * 0.8;
+
+      // Sparkle effect
+      float sparkle = step(0.97, hash(vWorldPos.xy * 30.0 + uTime * 0.2)) * fresnel;
+      finalColor += vec3(1.0) * sparkle * 2.0;
+
+      // Emissive glow for bloom pickup
+      finalColor += baseColor * 0.15;
+
+      gl_FragColor = vec4(finalColor, 0.92);
+    }
+  `
+)
+
+extend({ CinematicBaubleMaterial })
+
+type CinematicBaubleMaterialElement = typeof CinematicBaubleMaterial
+
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    cinematicBaubleMaterial: ThreeElement<CinematicBaubleMaterialElement>
+  }
+}
+
+// Baubles Component - Cinematic glass-like spheres
+function Baubles({ mixRef, count, scale }: { mixRef: { current: number }; count: number; scale: number }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const { treeData, scatterData, weights } = useMemo(() => {
+    const tree: THREE.Vector3[] = []
+    const scatter: THREE.Vector3[] = []
+    const w: number[] = []
+
+    for (let i = 0; i < count; i++) {
+      const pos = generateOrnamentPosition('bauble')
+      tree.push(pos.tree)
+      scatter.push(pos.scatter)
+      w.push(0.5 + Math.random() * 0.3)
+    }
+    return { treeData: tree, scatterData: scatter, weights: w }
+  }, [count])
+
+  useLayoutEffect(() => {
+    if (!meshRef.current) return
+    for (let i = 0; i < count; i++) {
+      const rand = Math.random()
+      const colorType = rand < 0.7 ? 'pink' : 'gold'
+      meshRef.current.setColorAt(i, new THREE.Color(getRandomColor(colorType)))
+    }
+    meshRef.current.instanceColor!.needsUpdate = true
+  }, [count])
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const t = mixRef.current
+    const time = state.clock.elapsedTime
+
+    // Update shader time uniform
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = time
+    }
+
+    for (let i = 0; i < count; i++) {
+      const tree = treeData[i]
+      const scatter = scatterData[i]
+      const weight = weights[i]
+
+      const wave = Math.sin(time * 0.5 + i) * weight * (1 - t) * 0.5
+
+      dummy.position.lerpVectors(scatter, tree, t)
+      dummy.position.y += wave
+      dummy.scale.setScalar(scale * (0.7 + 0.3 * t))
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <cinematicBaubleMaterial ref={materialRef} transparent depthWrite={false} />
+    </instancedMesh>
+  )
+}
+
+// Lights Component - Pink and Gold glow
+function Lights({ mixRef, count }: { mixRef: { current: number }; count: number }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const { treeData, scatterData } = useMemo(() => {
+    const tree: THREE.Vector3[] = []
+    const scatter: THREE.Vector3[] = []
+
+    for (let i = 0; i < count; i++) {
+      const pos = generateOrnamentPosition('light')
+      tree.push(pos.tree)
+      scatter.push(pos.scatter)
+    }
+    return { treeData: tree, scatterData: scatter }
+  }, [count])
+
+  useLayoutEffect(() => {
+    if (!meshRef.current) return
+    for (let i = 0; i < count; i++) {
+      // 60% pink, 40% gold
+      const rand = Math.random()
+      const colorType = rand < 0.6 ? 'pink' : 'gold'
+      meshRef.current.setColorAt(i, new THREE.Color(getRandomColor(colorType)))
+    }
+    meshRef.current.instanceColor!.needsUpdate = true
+  }, [count])
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const t = mixRef.current
+    const time = state.clock.elapsedTime
+
+    for (let i = 0; i < count; i++) {
+      const tree = treeData[i]
+      const scatter = scatterData[i]
+
+      dummy.position.lerpVectors(scatter, tree, t)
+      const twinkle = 0.8 + 0.2 * Math.sin(time * 3 + i * 0.5)
+      dummy.scale.setScalar(0.08 * twinkle)
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshBasicMaterial toneMapped={false} />
+    </instancedMesh>
+  )
+}
+
+// Diamonds Component - Crystal with pink/gold reflection
+function Diamonds({ mixRef, count }: { mixRef: { current: number }; count: number }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const { treeData, scatterData } = useMemo(() => {
+    const tree: THREE.Vector3[] = []
+    const scatter: THREE.Vector3[] = []
+
+    for (let i = 0; i < count; i++) {
+      const pos = generateOrnamentPosition('diamond')
+      tree.push(pos.tree)
+      scatter.push(pos.scatter)
+    }
+    return { treeData: tree, scatterData: scatter }
+  }, [count])
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const t = mixRef.current
+    const time = state.clock.elapsedTime
+
+    for (let i = 0; i < count; i++) {
+      const tree = treeData[i]
+      const scatter = scatterData[i]
+
+      dummy.position.lerpVectors(scatter, tree, t)
+      dummy.rotation.y = time * 0.5 + i
+      dummy.rotation.x = time * 0.3
+      dummy.scale.setScalar(0.2)
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <octahedronGeometry args={[1, 0]} />
+      <meshPhysicalMaterial
+        color="#ffb6c1"
+        metalness={0.1}
+        roughness={0}
+        transmission={0.9}
+        thickness={0.5}
+        clearcoat={1.0}
+      />
+    </instancedMesh>
+  )
+}
+
+// Luxury Gift Shader - Velvet/Brocade with metallic ribbon
+const LuxuryGiftMaterial = shaderMaterial(
+  {
+    uTime: 0,
+    uBaseColor: new THREE.Color('#8B0035'),
+    uRibbonColor: new THREE.Color('#FFD700'),
+  },
+  // Vertex Shader
+  `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+
+    void main() {
+      vUv = uv;
+      vNormal = normalize(normalMatrix * normal);
+      vec4 worldPos = modelMatrix * instanceMatrix * vec4(position, 1.0);
+      vWorldPos = worldPos.xyz;
+      vViewDir = normalize(cameraPosition - worldPos.xyz);
+      gl_Position = projectionMatrix * viewMatrix * worldPos;
+    }
+  `,
+  // Fragment Shader
+  `
+    uniform float uTime;
+    uniform vec3 uBaseColor;
+    uniform vec3 uRibbonColor;
+
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewDir);
+
+      // Ribbon detection (cross pattern)
+      float ribbonWidth = 0.12;
+      float isRibbonH = step(abs(vUv.x - 0.5), ribbonWidth);
+      float isRibbonV = step(abs(vUv.y - 0.5), ribbonWidth);
+      float isRibbon = max(isRibbonH, isRibbonV);
+
+      // Damask/Brocade pattern for velvet
+      float pattern1 = sin(vUv.x * 25.0) * cos(vUv.y * 25.0);
+      float pattern2 = sin((vUv.x + vUv.y) * 15.0) * 0.5;
+      float pattern = smoothstep(-0.5, 0.5, pattern1 + pattern2) * 0.15;
+
+      // Velvet sheen (angle-dependent brightness)
+      float sheen = 1.0 - abs(dot(normal, viewDir));
+      sheen = pow(sheen, 2.0);
+
+      // Velvet color with pattern
+      vec3 velvetColor = uBaseColor * (0.85 + pattern);
+      velvetColor += vec3(0.3, 0.1, 0.15) * sheen * 0.6;
+
+      // Metallic ribbon with crease effect
+      float ribbonCrease = sin(vUv.x * 80.0) * sin(vUv.y * 80.0) * 0.1;
+      vec3 ribbonFinal = uRibbonColor * (0.7 + sheen * 0.5 + ribbonCrease);
+
+      // Ribbon specular highlight
+      vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+      vec3 halfVec = normalize(lightDir + viewDir);
+      float ribbonSpec = pow(max(dot(normal, halfVec), 0.0), 32.0);
+      ribbonFinal += vec3(1.0) * ribbonSpec * isRibbon * 0.5;
+
+      // Sparkle/glitter on velvet
+      float sparkle = step(0.985, hash(vUv * 100.0 + floor(uTime * 2.0))) * (1.0 - isRibbon);
+      velvetColor += vec3(1.0, 0.9, 0.95) * sparkle * 0.8;
+
+      vec3 finalColor = mix(velvetColor, ribbonFinal, isRibbon);
+
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `
+)
+
+extend({ LuxuryGiftMaterial })
+
+type LuxuryGiftMaterialElement = typeof LuxuryGiftMaterial
+
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    luxuryGiftMaterial: ThreeElement<LuxuryGiftMaterialElement>
+  }
+}
+
+// Gifts Component - Luxury velvet with gold ribbon
+function Gifts({ mixRef, count }: { mixRef: { current: number }; count: number }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const { treeData, scatterData, rotations } = useMemo(() => {
+    const tree: THREE.Vector3[] = []
+    const scatter: THREE.Vector3[] = []
+    const rot: number[] = []
+
+    for (let i = 0; i < count; i++) {
+      const pos = generateOrnamentPosition('gift')
+      tree.push(pos.tree)
+      scatter.push(pos.scatter)
+      rot.push(Math.random() * Math.PI * 2)
+    }
+    return { treeData: tree, scatterData: scatter, rotations: rot }
+  }, [count])
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const t = mixRef.current
+    const time = state.clock.elapsedTime
+
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = time
+    }
+
+    for (let i = 0; i < count; i++) {
+      const tree = treeData[i]
+      const scatter = scatterData[i]
+
+      dummy.position.lerpVectors(scatter, tree, t)
+      dummy.rotation.y = rotations[i]
+      dummy.scale.setScalar(0.35 * (0.6 + 0.4 * t))
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <luxuryGiftMaterial ref={materialRef} />
+    </instancedMesh>
+  )
+}
+
+// Star Component
+function Star({ mixRef }: { mixRef: { current: number } }) {
+  const meshRef = useRef<THREE.Mesh>(null)
+  const { scatter, tree } = useMemo(() => generateOrnamentPosition('star'), [])
+
+  useFrame((state) => {
+    if (!meshRef.current) return
+    const t = mixRef.current
+    const time = state.clock.elapsedTime
+
+    meshRef.current.position.lerpVectors(scatter, tree, t)
+    meshRef.current.rotation.y = time * 0.5
+    meshRef.current.scale.setScalar(0.7 * (0.5 + 0.5 * t))
+  })
+
+  const starShape = useMemo(() => {
+    const shape = new THREE.Shape()
+    const outerRadius = 1
+    const innerRadius = 0.4
+    const points = 5
+
+    for (let i = 0; i < points * 2; i++) {
+      const radius = i % 2 === 0 ? outerRadius : innerRadius
+      const angle = (i * Math.PI) / points - Math.PI / 2
+      const x = Math.cos(angle) * radius
+      const y = Math.sin(angle) * radius
+      if (i === 0) shape.moveTo(x, y)
+      else shape.lineTo(x, y)
+    }
+    shape.closePath()
+    return shape
+  }, [])
+
+  return (
+    <mesh ref={meshRef}>
+      <extrudeGeometry args={[starShape, { depth: 0.2, bevelEnabled: false }]} />
+      <meshStandardMaterial color="#ffd700" emissive="#ffd700" emissiveIntensity={10} toneMapped={false} />
+    </mesh>
+  )
+}
+
+// Sophisticated Snowflake Texture Generator - 6 distinct crystalline styles
+function createSnowflakeTexture(style: number): THREE.CanvasTexture {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const cx = size / 2
+  const cy = size / 2
+
+  ctx.clearRect(0, 0, size, size)
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  // Ice blue glow effect
+  ctx.shadowColor = 'rgba(160, 210, 235, 0.8)'
+  ctx.shadowBlur = 8
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+
+  const drawSymmetry = (drawFn: () => void) => {
+    for (let i = 0; i < 6; i++) {
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate((Math.PI / 3) * i)
+      drawFn()
+      ctx.restore()
+    }
+  }
+
+  drawSymmetry(() => {
+    ctx.beginPath()
+
+    switch (style) {
+      case 0: // Classic Dendrite (Fern-like)
+        ctx.lineWidth = 4
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, -size * 0.45)
+        ctx.stroke()
+        for (let j = 1; j <= 4; j++) {
+          const y = -size * 0.1 * j
+          const len = size * 0.15 * (1 - j / 5)
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(len, y - len)
+          ctx.moveTo(0, y)
+          ctx.lineTo(-len, y - len)
+          ctx.stroke()
+        }
+        break
+
+      case 1: // Hexagonal Plate with ridges
+        ctx.lineWidth = 2
+        ctx.moveTo(0, 0)
+        ctx.lineTo(size * 0.1, -size * 0.4)
+        ctx.lineTo(-size * 0.1, -size * 0.4)
+        ctx.lineTo(0, 0)
+        ctx.fill()
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(0, -size * 0.1)
+        ctx.lineTo(0, -size * 0.3)
+        ctx.stroke()
+        break
+
+      case 2: // Stellar Star (Sharp)
+        ctx.lineWidth = 3
+        ctx.moveTo(0, 0)
+        ctx.quadraticCurveTo(size * 0.05, -size * 0.1, 0, -size * 0.45)
+        ctx.quadraticCurveTo(-size * 0.05, -size * 0.1, 0, 0)
+        ctx.fill()
+        break
+
+      case 3: // Broad Fern with ellipse
+        ctx.lineWidth = 2
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, -size * 0.4)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.ellipse(0, -size * 0.25, size * 0.08, size * 0.15, 0, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
+        ctx.fill()
+        break
+
+      case 4: // Capped Column / Prism
+        ctx.lineWidth = 3
+        ctx.moveTo(0, 0)
+        ctx.lineTo(0, -size * 0.35)
+        ctx.moveTo(0, -size * 0.35)
+        ctx.lineTo(size * 0.05, -size * 0.45)
+        ctx.lineTo(0, -size * 0.48)
+        ctx.lineTo(-size * 0.05, -size * 0.45)
+        ctx.lineTo(0, -size * 0.35)
+        ctx.stroke()
+        break
+
+      case 5: // Fancy Sectored Plate
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(size * 0.15, -size * 0.4)
+        ctx.lineTo(0, -size * 0.35)
+        ctx.lineTo(-size * 0.15, -size * 0.4)
+        ctx.closePath()
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+        ctx.fill()
+        ctx.stroke()
+        break
+    }
+  })
+
+  // Soft glowing center
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20)
+  grad.addColorStop(0, 'rgba(255,255,255,0.9)')
+  grad.addColorStop(0.5, 'rgba(160,210,235,0.4)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = grad
+  ctx.beginPath()
+  ctx.arc(cx, cy, 20, 0, Math.PI * 2)
+  ctx.fill()
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.needsUpdate = true
+  return tex
+}
+
+// Custom Shader Material for sparkle & glow effect
+const snowflakeShaderMaterial = {
+  uniforms: {
+    map: { value: null as THREE.Texture | null },
+    time: { value: 0 },
+    opacity: { value: 0.9 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    varying vec3 vPos;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vUv = uv;
+      vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
+      vec4 mvPosition = viewMatrix * worldPosition;
+      vViewPosition = -mvPosition.xyz;
+      vPos = worldPosition.xyz;
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D map;
+    uniform float time;
+    uniform float opacity;
+
+    varying vec2 vUv;
+    varying vec3 vPos;
+    varying vec3 vViewPosition;
+
+    float random(vec2 st) {
+      return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    void main() {
+      vec4 texColor = texture2D(map, vUv);
+      if (texColor.a < 0.01) discard;
+
+      vec3 viewDir = normalize(vViewPosition);
+      float sparkleNoise = random(vPos.xy + floor(time * 5.0));
+      float sparkle = pow(max(0.0, dot(viewDir, vec3(0.0, 0.0, 1.0))), 8.0);
+      float twinkle = sin(time * 3.0 + vPos.x * 10.0 + vPos.y * 8.0) * 0.5 + 0.5;
+
+      vec3 baseColor = vec3(0.9, 0.95, 1.0);
+      vec3 iceBlue = vec3(0.63, 0.82, 0.92);
+      vec3 softPink = vec3(1.0, 0.71, 0.76);
+      vec3 tint = mix(baseColor, mix(iceBlue, softPink, sparkleNoise * 0.3), 0.2);
+
+      vec3 finalColor = texColor.rgb * tint;
+      finalColor += vec3(1.0) * sparkle * twinkle * 0.6;
+
+      float alphaPulse = opacity * (0.75 + 0.25 * sin(time * 2.5 + vPos.y * 2.0));
+      gl_FragColor = vec4(finalColor, texColor.a * alphaPulse);
+    }
+  `
+}
+
+// Snowflake Batch Component with custom shader
+function SnowflakeBatch({ count, styleIndex, mixRef }: {
+  count: number
+  styleIndex: number
+  mixRef: { current: number }
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const texture = useMemo(() => createSnowflakeTexture(styleIndex), [styleIndex])
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  const { treeData, scatterData, speeds, phases, scales } = useMemo(() => {
+    const tData: THREE.Vector3[] = []
+    const sData: THREE.Vector3[] = []
+    const spd = new Float32Array(count)
+    const ph = new Float32Array(count)
+    const sc = new Float32Array(count)
+
+    for (let i = 0; i < count; i++) {
+      const pos = generateOrnamentPosition('snowflake')
+      tData.push(pos.tree)
+      sData.push(pos.scatter)
+      spd[i] = 0.15 + Math.random() * 0.35
+      ph[i] = Math.random() * Math.PI * 2
+      sc[i] = 0.4 + Math.random() * 0.4
+    }
+
+    return { treeData: tData, scatterData: sData, speeds: spd, phases: ph, scales: sc }
+  }, [count])
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current || !materialRef.current) return
+    const t = mixRef.current
+    const smoothT = t * t * (3 - 2 * t) // smoothstep
+    const time = clock.elapsedTime
+
+    materialRef.current.uniforms.time.value = time
+
+    for (let i = 0; i < count; i++) {
+      const start = scatterData[i]
+      const end = treeData[i]
+      const speed = speeds[i]
+      const phase = phases[i]
+      const scale = scales[i]
+
+      // Natural floating motion
+      const floatY = Math.sin(time * speed + phase) * 0.2
+      const floatX = Math.cos(time * speed * 0.7 + phase) * 0.15
+      const windDrift = Math.sin(time * 0.3 + phase) * 0.1
+
+      dummy.position.lerpVectors(start, end, smoothT)
+      dummy.position.x += floatX * (1 - smoothT * 0.5)
+      dummy.position.y += floatY
+      dummy.position.z += windDrift * (1 - smoothT * 0.5)
+
+      // Gentle tumbling rotation
+      dummy.rotation.x = time * speed * 0.4 + phase
+      dummy.rotation.y = time * speed * 0.3 + phase * 0.5
+      dummy.rotation.z = Math.sin(time * speed * 0.5 + phase) * 0.3
+
+      // Size with twinkle
+      const twinkle = 1 + Math.sin(time * 2.5 + phase) * 0.15
+      dummy.scale.setScalar(scale * twinkle)
+
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
+    meshRef.current.instanceMatrix.needsUpdate = true
+  })
+
+  const shaderMaterial = useMemo(() => {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture },
+        time: { value: 0 },
+        opacity: { value: 0.85 }
+      },
+      vertexShader: snowflakeShaderMaterial.vertexShader,
+      fragmentShader: snowflakeShaderMaterial.fragmentShader,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    })
+    return mat
+  }, [texture])
+
+  useLayoutEffect(() => {
+    materialRef.current = shaderMaterial
+  }, [shaderMaterial])
+
+  return (
+    <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
+      <planeGeometry args={[1, 1]} />
+      <primitive object={shaderMaterial} attach="material" />
+    </instancedMesh>
+  )
+}
+
+// Snowflakes Component - 6 batches with different crystalline styles
+function Snowflakes({ mixRef }: { mixRef: { current: number } }) {
+  return (
+    <group>
+      {[0, 1, 2, 3, 4, 5].map((style) => (
+        <SnowflakeBatch key={style} count={25} styleIndex={style} mixRef={mixRef} />
+      ))}
+    </group>
+  )
+}
+
+// Main Ornaments Component
+export function Ornaments({ mixRef }: OrnamentsProps) {
+  return (
+    <group>
+      <Star mixRef={mixRef} />
+      <Baubles mixRef={mixRef} count={1200} scale={0.15} />
+      <Baubles mixRef={mixRef} count={800} scale={0.08} />
+      <Diamonds mixRef={mixRef} count={50} />
+      <Gifts mixRef={mixRef} count={30} />
+      <Lights mixRef={mixRef} count={400} />
+      <Snowflakes mixRef={mixRef} />
+    </group>
+  )
+}

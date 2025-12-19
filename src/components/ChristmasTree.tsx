@@ -1,0 +1,31 @@
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { easing } from 'maath'
+import { Foliage } from './Foliage'
+import { Ornaments } from './Ornaments'
+import { TreeGlow } from './TreeGlow'
+import { Floor } from './Floor'
+
+interface ChristmasTreeProps {
+  isTreeShape: boolean
+}
+
+export function ChristmasTree({ isTreeShape }: ChristmasTreeProps) {
+  const mixRef = useRef({ current: 1 })
+
+  useFrame((_, delta) => {
+    const target = isTreeShape ? 1 : 0
+    // Scatter faster (0.5s) than assemble (1.0s)
+    const smoothTime = isTreeShape ? 1.0 : 0.5
+    easing.damp(mixRef.current, 'current', target, smoothTime, delta)
+  })
+
+  return (
+    <group>
+      <TreeGlow mixRef={mixRef.current} />
+      <Foliage mixRef={mixRef.current} />
+      <Ornaments mixRef={mixRef.current} />
+      <Floor mixRef={mixRef.current} />
+    </group>
+  )
+}
