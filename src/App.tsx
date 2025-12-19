@@ -8,6 +8,7 @@ import { Scene } from './components/Scene'
 import { ChristmasTree } from './components/ChristmasTree'
 import { Background } from './components/Background'
 import { Overlay } from './components/Overlay'
+import { Snow } from './components/Snow'
 
 export default function App() {
   const [isTreeShape, setIsTreeShape] = useState(true)
@@ -34,6 +35,7 @@ export default function App() {
 
         <Scene />
         <Background />
+        <Snow />
         <ChristmasTree isTreeShape={isTreeShape} />
 
         <EffectComposer multisampling={8}>

@@ -27,18 +27,19 @@ void main() {
   float heightNorm = clamp(aTreePos.y / 12.0, 0.0, 1.0);
 
   // Bottom: deep purple (0.3, 0.1, 0.3)
-  // Main: dreamy pink (0.8, 0.5, 0.7)
-  // Top accent: magical blue (0.4, 0.6, 0.9)
+  // Main: dreamy pink (0.85, 0.5, 0.75) -> Slightly boosted pink
+  // Top accent: magical blue (0.45, 0.7, 1.0) -> Brighter blue
   vec3 bottomColor = vec3(0.3, 0.1, 0.3);
-  vec3 pinkColor = vec3(0.8, 0.5, 0.7);
-  vec3 blueColor = vec3(0.4, 0.6, 0.9);
+  vec3 pinkColor = vec3(0.85, 0.5, 0.75);
+  vec3 blueColor = vec3(0.45, 0.7, 1.0);
 
   vec3 color = mix(bottomColor, pinkColor, smoothstep(0.0, 0.4, heightNorm));
   color = mix(color, mix(pinkColor, blueColor, 0.3), smoothstep(0.6, 1.0, heightNorm));
 
-  // Sparkle calculation
-  float sparkleVal = sin(speed * 50.0 + uTime * 3.0);
-  vSparkle = sparkleVal > 0.95 ? 1.0 : 0.0;
+  // Sparkle calculation - Enhanced
+  // Faster, sharper sparkles using high frequency sine waves
+  float sparkleVal = sin(speed * 80.0 + uTime * 4.0) + sin(pos.x * 20.0 + uTime * 2.0);
+  vSparkle = sparkleVal > 1.0 ? 1.0 : 0.0; // Threshold for "on/off" glitter effect
 
   vColor = color;
 

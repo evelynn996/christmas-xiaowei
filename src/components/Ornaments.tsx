@@ -168,7 +168,7 @@ function Baubles({ mixRef, count, scale }: { mixRef: { current: number }; count:
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, count]} renderOrder={1}>
       <sphereGeometry args={[1, 32, 32]} />
-      <cinematicBaubleMaterial ref={materialRef} transparent depthWrite={false} />
+      <cinematicBaubleMaterial ref={materialRef} transparent depthWrite={true} />
     </instancedMesh>
   )
 }

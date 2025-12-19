@@ -15,24 +15,13 @@ export function Floor({ mixRef }: FloorProps) {
     canvas.height = 512
     const ctx = canvas.getContext('2d')!
 
-    // Gradient background
+    // Soft gradient background (Pinkish purple glow)
     const gradient = ctx.createRadialGradient(256, 256, 0, 256, 256, 256)
-    gradient.addColorStop(0, 'rgba(255, 182, 193, 0.3)')
-    gradient.addColorStop(0.5, 'rgba(160, 210, 235, 0.15)')
-    gradient.addColorStop(1, 'rgba(75, 0, 130, 0)')
+    gradient.addColorStop(0, 'rgba(255, 182, 193, 0.25)') // Center soft pink
+    gradient.addColorStop(0.4, 'rgba(160, 210, 235, 0.1)') // Mid soft blue
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)') // Edge transparent
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, 512, 512)
-
-    // Snowflake pattern
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
-    for (let i = 0; i < 50; i++) {
-      const x = Math.random() * 512
-      const y = Math.random() * 512
-      const size = 2 + Math.random() * 4
-      ctx.beginPath()
-      ctx.arc(x, y, size, 0, Math.PI * 2)
-      ctx.fill()
-    }
 
     const tex = new THREE.CanvasTexture(canvas)
     tex.needsUpdate = true
@@ -41,15 +30,21 @@ export function Floor({ mixRef }: FloorProps) {
 
   useFrame(() => {
     if (meshRef.current) {
-      const material = meshRef.current.material as THREE.MeshBasicMaterial
-      material.opacity = mixRef.current * 0.6
+      // Scale slightly with the mix for a dynamic feel
+      meshRef.current.scale.setScalar(1 + mixRef.current * 0.1)
     }
   })
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-      <circleGeometry args={[14, 64]} />
-      <meshBasicMaterial map={texture} transparent opacity={0} blending={THREE.AdditiveBlending} />
+      <circleGeometry args={[12, 64]} />
+      <meshBasicMaterial 
+        map={texture} 
+        transparent 
+        opacity={0.8} 
+        blending={THREE.AdditiveBlending} 
+        depthWrite={false}
+      />
     </mesh>
   )
 }
