@@ -21,7 +21,7 @@ export default function App() {
           toneMappingExposure: 1.2,
           antialias: true,
         }}
-        style={{ background: '#0a0010' }}
+        style={{ background: '#050a14' }}
       >
         <PerspectiveCamera makeDefault position={[0, 4, 18]} fov={50} />
         <OrbitControls
@@ -43,14 +43,14 @@ export default function App() {
           <Bloom
             luminanceThreshold={0.6}
             luminanceSmoothing={0.9}
-            intensity={1.2}
+            intensity={1.5}
             radius={0.8}
             mipmapBlur
           />
           {/* Secondary subtle bloom for softer glow */}
           <Bloom
             luminanceThreshold={1.0}
-            intensity={0.4}
+            intensity={0.6}
             radius={1.2}
             mipmapBlur
           />

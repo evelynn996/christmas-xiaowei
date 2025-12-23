@@ -2,7 +2,7 @@ import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-const STAR_COUNT = 1000
+const STAR_COUNT = 2000
 
 export function Background() {
   const pointsRef = useRef<THREE.Points>(null)
@@ -22,15 +22,15 @@ export function Background() {
       positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
       positions[i * 3 + 2] = r * Math.cos(phi)
 
-      // Colors: mostly pink, some purple and blue
+      // Colors: Warm White, Gold, soft Blue - Christmas night sky
       const rand = Math.random()
       let color: THREE.Color
-      if (rand < 0.6) {
-        color = new THREE.Color().setHSL(0.9 + Math.random() * 0.1, 0.6, 0.6 + Math.random() * 0.2)
-      } else if (rand < 0.85) {
-        color = new THREE.Color().setHSL(0.75 + Math.random() * 0.1, 0.5, 0.5)
+      if (rand < 0.8) {
+        color = new THREE.Color().setHSL(0.12, 0.8, 0.9) // Warm White/Gold
+      } else if (rand < 0.95) {
+        color = new THREE.Color().setHSL(0.6, 0.8, 0.9) // Cyan/Blue
       } else {
-        color = new THREE.Color().setHSL(0.55, 0.5, 0.7)
+        color = new THREE.Color().setHSL(0.0, 0.0, 1.0) // Pure White
       }
 
       colors[i * 3] = color.r
@@ -45,17 +45,17 @@ export function Background() {
 
   useFrame((state) => {
     if (pointsRef.current) {
-      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.01
+      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.02
     }
   })
 
   return (
     <points ref={pointsRef} geometry={geometry}>
       <pointsMaterial
-        size={0.3}
+        size={0.4}
         vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.9}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
         depthWrite={false}

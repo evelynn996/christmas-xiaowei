@@ -9,12 +9,14 @@ interface OrnamentsProps {
   mixRef: { current: number }
 }
 
-// Color palettes
-const PINK_COLORS = ['#ff69b4', '#ff1493', '#db7093', '#ffb6c1', '#ffc0cb', '#e91e8c']
-const GOLD_COLORS = ['#ffd700', '#ffb347', '#daa520']
+// Color palettes - Traditional Christmas colors
+const RED_COLORS = ['#d40000', '#ff0000', '#8b0000', '#b22222', '#dc143c']
+const GOLD_COLORS = ['#ffd700', '#daa520', '#ffd400', '#f4c430']
+const GREEN_COLORS = ['#006400', '#228b22', '#008000', '#32cd32']
+const SILVER_COLORS = ['#c0c0c0', '#dcdcdc', '#f8f8ff', '#e0ffff']
 
-function getRandomColor(type: 'pink' | 'gold'): string {
-  const palette = type === 'pink' ? PINK_COLORS : GOLD_COLORS
+function getRandomColor(type: 'red' | 'gold' | 'green' | 'silver'): string {
+  const palette = type === 'red' ? RED_COLORS : type === 'gold' ? GOLD_COLORS : type === 'green' ? GREEN_COLORS : SILVER_COLORS
   return palette[Math.floor(Math.random() * palette.length)]
 }
 
@@ -102,8 +104,8 @@ declare module '@react-three/fiber' {
 const LuxuryGiftMaterial = shaderMaterial(
   {
     uTime: 0,
-    uBaseColor: new THREE.Color('#D81B60'), // Deep Rose Pink
-    uRibbonColor: new THREE.Color('#FFF0F5'), // Lavender Blush (Creamy)
+    uBaseColor: new THREE.Color('#8b0000'), // Deep Christmas Red
+    uRibbonColor: new THREE.Color('#d4af37'), // Gold Ribbon
   },
   // Vertex Shader
   `
@@ -206,7 +208,11 @@ function Baubles({ mixRef, count, scale }: { mixRef: { current: number }; count:
     if (!meshRef.current) return
     for (let i = 0; i < count; i++) {
       const rand = Math.random()
-      const colorType = rand < 0.7 ? 'pink' : 'gold'
+      let colorType: 'red' | 'gold' | 'green' | 'silver' = 'red'
+      if (rand < 0.4) colorType = 'red'
+      else if (rand < 0.7) colorType = 'gold'
+      else if (rand < 0.9) colorType = 'green'
+      else colorType = 'silver'
       meshRef.current.setColorAt(i, new THREE.Color(getRandomColor(colorType)))
     }
     meshRef.current.instanceColor!.needsUpdate = true
@@ -260,8 +266,9 @@ function Lights({ mixRef, count }: { mixRef: { current: number }; count: number 
     if (!meshRef.current) return
     for (let i = 0; i < count; i++) {
       const rand = Math.random()
-      const colorType = rand < 0.6 ? 'pink' : 'gold'
-      meshRef.current.setColorAt(i, new THREE.Color(getRandomColor(colorType)))
+      // Christmas lights: warm white, red, green
+      const color = rand < 0.7 ? '#ffffe0' : (rand < 0.85 ? '#ff0000' : '#00ff00')
+      meshRef.current.setColorAt(i, new THREE.Color(color))
     }
     meshRef.current.instanceColor!.needsUpdate = true
   }, [count])
@@ -274,7 +281,8 @@ function Lights({ mixRef, count }: { mixRef: { current: number }; count: number 
       const tree = treeData[i]
       const scatter = scatterData[i]
       dummy.position.lerpVectors(scatter, tree, t)
-      const twinkle = 0.8 + 0.2 * Math.sin(time * 3 + i * 0.5)
+      // Faster, more dramatic twinkling for Christmas lights
+      const twinkle = 0.5 + 0.5 * Math.sin(time * 6 + i * 15.0)
       dummy.scale.setScalar(0.08 * twinkle)
       dummy.updateMatrix()
       meshRef.current.setMatrixAt(i, dummy.matrix)
@@ -326,7 +334,7 @@ function Diamonds({ mixRef, count }: { mixRef: { current: number }; count: numbe
     <instancedMesh ref={meshRef} args={[undefined, undefined, count]}>
       <octahedronGeometry args={[1, 0]} />
       <meshPhysicalMaterial
-        color="#ffb6c1"
+        color="#e0ffff"
         metalness={0.1}
         roughness={0}
         transmission={0.9}
@@ -438,31 +446,31 @@ function Gifts({ mixRef, count }: { mixRef: { current: number }; count: number }
       
       {/* 3D Bows - Custom Merged Geometry */}
       <instancedMesh ref={bowRef} args={[bowGeometry, undefined, count]}>
-        <meshStandardMaterial 
-          color="#FFF5EE" // Seashell (Creamy White)
+        <meshStandardMaterial
+          color="#d4af37"
           roughness={0.4}
-          metalness={0.1}
-          emissive="#FFF5EE"
-          emissiveIntensity={0.3} // Gentle glow to stay white
+          metalness={0.3}
+          emissive="#d4af37"
+          emissiveIntensity={0.2}
         />
       </instancedMesh>
     </group>
   )
 }
 
-// Star Component
+// Star Component with Glow Halo
 function Star({ mixRef }: { mixRef: { current: number } }) {
-  const meshRef = useRef<THREE.Mesh>(null)
+  const groupRef = useRef<THREE.Group>(null)
   const { scatter, tree } = useMemo(() => generateOrnamentPosition('star'), [])
 
   useFrame((state) => {
-    if (!meshRef.current) return
+    if (!groupRef.current) return
     const t = mixRef.current
     const time = state.clock.elapsedTime
 
-    meshRef.current.position.lerpVectors(scatter, tree, t)
-    meshRef.current.rotation.y = time * 0.5
-    meshRef.current.scale.setScalar(0.7 * (0.5 + 0.5 * t))
+    groupRef.current.position.lerpVectors(scatter, tree, t)
+    groupRef.current.rotation.y = time * 0.5
+    groupRef.current.scale.setScalar(1.2 * (0.5 + 0.5 * t))
   })
 
   const starShape = useMemo(() => {
@@ -484,10 +492,23 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
   }, [])
 
   return (
-    <mesh ref={meshRef}>
-      <extrudeGeometry args={[starShape, { depth: 0.2, bevelEnabled: false }]} />
-      <meshStandardMaterial color="#ffd700" emissive="#ffd700" emissiveIntensity={10} toneMapped={false} />
-    </mesh>
+    <group ref={groupRef}>
+      {/* Main Star */}
+      <mesh>
+        <extrudeGeometry args={[starShape, { depth: 0.3, bevelEnabled: true, bevelSize: 0.1, bevelThickness: 0.1 }]} />
+        <meshStandardMaterial color="#ffcc00" emissive="#ffaa00" emissiveIntensity={2} metalness={0.8} roughness={0.2} />
+      </mesh>
+      {/* Glow Halo */}
+      <mesh position={[0, 0, -0.1]}>
+        <circleGeometry args={[2.5, 32]} />
+        <meshBasicMaterial color="#ffaa00" transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+      {/* Rays */}
+      <mesh position={[0, 0, -0.05]} rotation={[0, 0, Math.PI / 4]}>
+        <planeGeometry args={[5, 5]} />
+        <meshBasicMaterial color="#ffd700" transparent opacity={0.15} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    </group>
   )
 }
 
@@ -788,11 +809,11 @@ export function Ornaments({ mixRef }: OrnamentsProps) {
   return (
     <group>
       <Star mixRef={mixRef} />
-      <Baubles mixRef={mixRef} count={1200} scale={0.15} />
-      <Baubles mixRef={mixRef} count={800} scale={0.08} />
+      <Baubles mixRef={mixRef} count={1400} scale={0.15} />
+      <Baubles mixRef={mixRef} count={600} scale={0.09} />
       <Diamonds mixRef={mixRef} count={50} />
-      <Gifts mixRef={mixRef} count={30} />
-      <Lights mixRef={mixRef} count={400} />
+      <Gifts mixRef={mixRef} count={40} />
+      <Lights mixRef={mixRef} count={600} />
       <Snowflakes mixRef={mixRef} />
     </group>
   )

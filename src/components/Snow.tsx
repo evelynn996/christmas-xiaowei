@@ -2,7 +2,7 @@ import { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-const SNOW_COUNT = 1500
+const SNOW_COUNT = 2000
 
 export function Snow() {
   const meshRef = useRef<THREE.InstancedMesh>(null)
@@ -17,8 +17,8 @@ export function Snow() {
       const z = (Math.random() - 0.5) * 50
       const factor = 0.3 + Math.random() * 0.7
       const speed = 0.2 + (factor * 0.8) + Math.random() * 0.3
-      const swaySpeed = 0.2 + Math.random() * 0.4
-      const swayAmplitutde = 0.5 + Math.random() * 1.5 // How far it sways
+      const swaySpeed = 0.5 + Math.random() * 1.0
+      const swayAmplitutde = 1.0 + Math.random() * 2.0 // How far it sways
       temp.push({ x, y, z, speed, factor, swaySpeed, swayAmplitutde, initialX: x, initialZ: z })
     }
     return temp
@@ -30,8 +30,8 @@ export function Snow() {
     const t = state.clock.elapsedTime
 
     particles.forEach((particle, i) => {
-      // Update Y position (falling)
-      particle.y -= particle.speed * 0.02
+      // Update Y position (falling) - faster for more visible motion
+      particle.y -= particle.speed * 0.05
       
       // Reset if too low
       if (particle.y < -5) {
