@@ -567,7 +567,8 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
 
     for (let i = 0; i < points * 2; i++) {
       const radius = i % 2 === 0 ? outerRadius : innerRadius
-      const angle = (i * Math.PI) / points - Math.PI / 2
+      // Rotate so first point (i=0) is straight UP (PI/2)
+      const angle = (i * Math.PI) / points + Math.PI / 2
       const x = Math.cos(angle) * radius
       const y = Math.sin(angle) * radius
       
