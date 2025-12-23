@@ -4,6 +4,7 @@ import { easing } from 'maath'
 import { Foliage } from './Foliage'
 import { Ornaments } from './Ornaments'
 import { Floor } from './Floor'
+import { FireflyRiver } from './FireflyRiver'
 
 interface ChristmasTreeProps {
   isTreeShape: boolean
@@ -24,6 +25,7 @@ export function ChristmasTree({ isTreeShape }: ChristmasTreeProps) {
       <Foliage mixRef={mixRef.current} />
       <Ornaments mixRef={mixRef.current} />
       <Floor mixRef={mixRef.current} />
+      <FireflyRiver mixRef={mixRef.current} />
     </group>
   )
 }
