@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 
 export function Scene() {
@@ -49,6 +50,16 @@ export function Scene() {
 
       {/* Soft center glow - Warm orange gold */}
       <pointLight position={[0, 6, 0]} intensity={4} color="#ffaa00" distance={15} decay={2} />
+
+      {/* Post Processing for the Holy Glow */}
+      <EffectComposer>
+        <Bloom 
+          luminanceThreshold={1.2} // Only very bright objects will bloom
+          mipmapBlur // High quality soft blur
+          intensity={1.2} 
+          radius={0.6}
+        />
+      </EffectComposer>
     </>
   )
 }

@@ -458,122 +458,134 @@ function Gifts({ mixRef, count }: { mixRef: { current: number }; count: number }
   )
 }
 
-// Helper to create a smooth gradient texture for light rays
-function createStarRayTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
-  const ctx = canvas.getContext('2d')!
-  const cx = 256
-  const cy = 256
-
-  ctx.clearRect(0, 0, 512, 512)
+// Custom Orbiting Particles Component - Using Points for real "Light Dot" look
+function OrbitingParticles({ count = 60, radius = 1.2 }) {
+  const pointsRef = useRef<THREE.Points>(null)
   
-  // Faint background glow - very subtle now
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 256)
-  gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)')
-  gradient.addColorStop(0.3, 'rgba(255, 250, 200, 0.05)')
-  gradient.addColorStop(1, 'rgba(255, 220, 100, 0)')
-  
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, 512, 512)
+  // Random initial data
+  const particles = useMemo(() => {
+    return new Array(count).fill(0).map(() => ({
+      angle: Math.random() * Math.PI * 2,
+      y: (Math.random() - 0.5) * 1.5,
+      radiusOffset: (Math.random() - 0.5) * 0.6,
+      speed: 0.2 + Math.random() * 0.5,
+      offset: Math.random() * 100,
+    }))
+  }, [count])
 
-  // Sharp, distinct rays
-  ctx.save()
-  ctx.translate(cx, cy)
-  // Draw more, thinner rays for a better effect
-  for (let i = 0; i < 12; i++) {
-    ctx.rotate((Math.PI * 2) / 12)
-    ctx.beginPath()
-    ctx.moveTo(0, 0)
-    // Long, thin rays
-    ctx.lineTo(8, -100) 
-    ctx.lineTo(0, -250)
-    ctx.lineTo(-8, -100)
-    // Warm light color - Bright Yellow/White
-    ctx.fillStyle = 'rgba(255, 255, 220, 0.35)'
-    ctx.fill()
-  }
-  ctx.restore()
+  // Soft glowing dot texture
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 32; canvas.height = 32
+    const ctx = canvas.getContext('2d')!
+    
+    // Soft radial gradient
+    const grad = ctx.createRadialGradient(16,16,0,16,16,16)
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    grad.addColorStop(0.3, 'rgba(255, 255, 200, 0.8)')
+    grad.addColorStop(0.6, 'rgba(255, 220, 100, 0.2)')
+    grad.addColorStop(1, 'rgba(255, 200, 0, 0)')
+    
+    ctx.fillStyle = grad
+    ctx.fillRect(0,0,32,32)
+    
+    const t = new THREE.CanvasTexture(canvas)
+    t.needsUpdate = true
+    return t
+  }, [])
 
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.needsUpdate = true
-  return tex
+  // Initial positions buffer
+  const positions = useMemo(() => new Float32Array(count * 3), [count])
+
+  useFrame((state) => {
+    if (!pointsRef.current) return
+    const time = state.clock.elapsedTime
+    
+    // We update the buffer attribute directly
+    const posAttribute = pointsRef.current.geometry.attributes.position
+    
+    particles.forEach((p, i) => {
+      // 1. Base Orbit
+      const currentAngle = p.angle + time * p.speed
+      
+      // 2. Irregular Noise/Wobble
+      // Superimpose sine waves for chaotic but smooth motion
+      const wobbleX = Math.sin(time * 1.5 + p.offset) * 0.15
+      const wobbleY = Math.cos(time * 2.0 + p.offset) * 0.15
+      const wobbleZ = Math.sin(time * 2.5 + p.offset) * 0.15
+
+      const r = radius + p.radiusOffset
+      
+      // Calculate position
+      const x = Math.cos(currentAngle) * r + wobbleX
+      const y = p.y + wobbleY
+      const z = Math.sin(currentAngle) * r + wobbleZ
+
+      // Update buffer
+      posAttribute.setXYZ(i, x, y, z)
+    })
+    
+    posAttribute.needsUpdate = true
+  })
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        map={texture}
+        size={0.25} // Size of the dots
+        sizeAttenuation={true}
+        color="#fff" // Texture handles color, but this boosts brightness
+        transparent
+        opacity={0.9}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </points>
+  )
 }
 
-// Helper for a pure, soft glow texture
-function createGlowTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = 128
-  canvas.height = 128
-  const ctx = canvas.getContext('2d')!
-  const cx = 64
-  const cy = 64
-
-  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 64)
-  // Classic Golden Glow (Yellow -> Warm White -> Transparent)
-  gradient.addColorStop(0, 'rgba(255, 255, 240, 1)')
-  gradient.addColorStop(0.2, 'rgba(255, 240, 150, 0.5)')
-  gradient.addColorStop(0.5, 'rgba(255, 220, 100, 0.2)')
-  gradient.addColorStop(1, 'rgba(255, 200, 50, 0)') // Fade to transparent yellow
-
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, 128, 128)
-
-  const tex = new THREE.CanvasTexture(canvas)
-  tex.needsUpdate = true
-  return tex
-}
-
-// Ultimate Christmas Star Component
+// Ultimate Christmas Star Component - Small & Elegant Version
 function Star({ mixRef }: { mixRef: { current: number } }) {
   const groupRef = useRef<THREE.Group>(null)
-  const raysRef = useRef<THREE.Mesh>(null)
-  const glowRef = useRef<THREE.Mesh>(null)
   
   const { scatter, tree } = useMemo(() => generateOrnamentPosition('star'), [])
-  const rayTexture = useMemo(() => createStarRayTexture(), [])
-  const glowTexture = useMemo(() => createGlowTexture(), [])
 
-  // 3D Star Geometry - Fatter, classic shape
-  const starGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry()
-    const vertices: number[] = []
-    const indices: number[] = []
+  // Elegant Small Star Geometry
+  const starShape = useMemo(() => {
+    const shape = new THREE.Shape()
+    const points = 5
+    const outerRadius = 0.8 // Significantly smaller (was 1.2)
+    const innerRadius = 0.4 // Proportionally thinner
 
-    const numPoints = 5
-    const outerRadius = 1.2
-    const innerRadius = 0.55
-    const depth = 0.4
-
-    // Center points
-    vertices.push(0, 0, depth)  // 0: Front
-    vertices.push(0, 0, -depth) // 1: Back
-
-    // Rim points
-    for (let i = 0; i < numPoints * 2; i++) {
+    for (let i = 0; i < points * 2; i++) {
       const radius = i % 2 === 0 ? outerRadius : innerRadius
-      const angle = (i * Math.PI) / numPoints - Math.PI / 2
+      const angle = (i * Math.PI) / points - Math.PI / 2
       const x = Math.cos(angle) * radius
       const y = Math.sin(angle) * radius
-      vertices.push(x, y, 0)
+      
+      if (i === 0) shape.moveTo(x, y)
+      else shape.lineTo(x, y)
     }
-
-    // Faces
-    for (let i = 0; i < numPoints * 2; i++) {
-      const current = i + 2
-      const next = ((i + 1) % (numPoints * 2)) + 2
-      indices.push(0, current, next) // Front
-      indices.push(1, next, current) // Back
-    }
-
-    const positions = new Float32Array(vertices)
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geometry.setIndex(indices)
-    geometry.computeVertexNormals()
-    
-    return geometry
+    shape.closePath()
+    return shape
   }, [])
+
+  // Thinner Extrude Settings
+  const extrudeSettings = useMemo(() => ({
+    depth: 0.2,          
+    bevelEnabled: true,
+    bevelThickness: 0.08, 
+    bevelSize: 0.1,     
+    bevelSegments: 4     
+  }), [])
 
   useFrame((state) => {
     if (!groupRef.current) return
@@ -582,87 +594,40 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
 
     groupRef.current.position.lerpVectors(scatter, tree, t)
     
-    // Gentle floating rotation
     groupRef.current.rotation.y = Math.sin(time * 0.2) * 0.2
     
-    // Breathing scale
-    const pulse = 1 + Math.sin(time * 1.5) * 0.03
-    groupRef.current.scale.setScalar(1.2 * (0.5 + 0.5 * t) * pulse)
-
-    // Ray rotation (Holy light effect)
-    if (raysRef.current) {
-      raysRef.current.rotation.z = time * 0.08
-      const scalePulse = 1 + Math.sin(time * 2) * 0.05
-      raysRef.current.scale.setScalar(scalePulse)
-    }
-
-    // Glow pulse - Subtle breathing
-    if (glowRef.current) {
-      const glowScale = 1 + Math.sin(time * 3) * 0.1
-      glowRef.current.scale.setScalar(glowScale)
-      ;(glowRef.current.material as THREE.Material).opacity = 0.6 + Math.sin(time * 2.5) * 0.1
-    }
+    // Reduced overall scale pulsation
+    const pulse = 1 + Math.sin(time * 1.5) * 0.02
+    groupRef.current.scale.setScalar(1.0 * (0.5 + 0.5 * t) * pulse)
   })
 
   return (
     <group ref={groupRef}>
-      {/* Warm Point Light - Brighter Yellow */}
-      <pointLight color="#ffdd66" intensity={4} distance={10} decay={2} />
+      {/* Point Light - Slightly dimmer for smaller star */}
+      <pointLight color="#ffaa00" intensity={4} distance={12} decay={2} />
 
-      {/* Main Star Body - Classic Gold */}
-      <mesh geometry={starGeometry}>
+      {/* 1. Core */}
+      <mesh position={[0,0,0]}>
+        <sphereGeometry args={[0.15, 16, 16]} />
+        <meshBasicMaterial color={[10, 10, 8]} toneMapped={false} /> 
+      </mesh>
+
+      {/* 2. Main Body */}
+      <mesh position={[0, 0, -0.05]}> 
+        <extrudeGeometry args={[starShape, extrudeSettings]} />
         <meshStandardMaterial 
-          color="#ffd700" 
-          emissive="#ffe033"
-          emissiveIntensity={0.8}
-          metalness={0.9}
-          roughness={0.2}
+          color="#ffd700"
+          emissive="#ffd700"
+          emissiveIntensity={2.5} 
+          toneMapped={false}      
+          roughness={0.15}
+          metalness={1.0}
         />
       </mesh>
 
-      {/* Wireframe Outline for Definition - Pale Yellow */}
-      <mesh geometry={starGeometry} scale={1.01}>
-         <meshBasicMaterial color="#ffffee" wireframe transparent opacity={0.3} />
-      </mesh>
+      {/* 3. Orbiting Light Points */}
+      <OrbitingParticles count={80} radius={1.0} />
 
-      {/* Rotating God Rays - Using plane + texture (No hard edges) */}
-      <Billboard>
-        <mesh ref={raysRef} scale={4.5}>
-          <planeGeometry args={[2, 2]} />
-          <meshBasicMaterial 
-            map={rayTexture} 
-            transparent 
-            opacity={0.8} 
-            blending={THREE.AdditiveBlending} 
-            depthWrite={false} 
-          />
-        </mesh>
-      </Billboard>
-
-      {/* Soft Center Glow - Using plane + texture (Replaces circleGeometry) */}
-      <Billboard>
-         <mesh ref={glowRef} scale={3}>
-            <planeGeometry args={[1, 1]} />
-             <meshBasicMaterial 
-                map={glowTexture}
-                color="#ffffff" 
-                transparent 
-                opacity={0.6} 
-                blending={THREE.AdditiveBlending} 
-                depthWrite={false}
-             />
-         </mesh>
-      </Billboard>
-
-      {/* Sparkles */}
-      <Sparkles 
-        count={40} 
-        scale={3} 
-        size={6} 
-        speed={0.4} 
-        opacity={0.8} 
-        color="#fffee0"
-      />
     </group>
   )
 }
