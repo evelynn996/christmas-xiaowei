@@ -552,18 +552,18 @@ function OrbitingParticles({ count = 60, radius = 1.2 }) {
   )
 }
 
-// Ultimate Christmas Star Component - Small & Elegant Version
+// Ultimate Christmas Star Component - 5-Point Puffy "Cookie" Star
 function Star({ mixRef }: { mixRef: { current: number } }) {
   const groupRef = useRef<THREE.Group>(null)
   
   const { scatter, tree } = useMemo(() => generateOrnamentPosition('star'), [])
 
-  // Elegant Small Star Geometry
+  // 5-Point Star Shape (Cookie Style)
   const starShape = useMemo(() => {
     const shape = new THREE.Shape()
-    const points = 5
-    const outerRadius = 0.8 // Significantly smaller (was 1.2)
-    const innerRadius = 0.4 // Proportionally thinner
+    const points = 5 // <--- Back to 5 Points
+    const outerRadius = 1 
+    const innerRadius = 0.45 // Slightly adjusted for 5 points balance
 
     for (let i = 0; i < points * 2; i++) {
       const radius = i % 2 === 0 ? outerRadius : innerRadius
@@ -578,13 +578,13 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
     return shape
   }, [])
 
-  // Thinner Extrude Settings
+  // Extrude settings for "Puffy/Bulging" look
   const extrudeSettings = useMemo(() => ({
-    depth: 0.2,          
+    depth: 0.1,          // Thin base layer
     bevelEnabled: true,
-    bevelThickness: 0.08, 
-    bevelSize: 0.1,     
-    bevelSegments: 4     
+    bevelThickness: 0.4, // High bevel = Puffy/Dome-like center
+    bevelSize: 0.35,     // Large inset = Sharpens the top, reducing flat area
+    bevelSegments: 12    // Smooth rounded puffiness
   }), [])
 
   useFrame((state) => {
@@ -594,26 +594,27 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
 
     groupRef.current.position.lerpVectors(scatter, tree, t)
     
+    // Gentle floating rotation
     groupRef.current.rotation.y = Math.sin(time * 0.2) * 0.2
     
-    // Reduced overall scale pulsation
+    // Breathing scale - Reduced base size to 0.75
     const pulse = 1 + Math.sin(time * 1.5) * 0.02
-    groupRef.current.scale.setScalar(1.0 * (0.5 + 0.5 * t) * pulse)
+    groupRef.current.scale.setScalar(0.75 * (0.5 + 0.5 * t) * pulse)
   })
 
   return (
     <group ref={groupRef}>
-      {/* Point Light - Slightly dimmer for smaller star */}
+      {/* Point Light */}
       <pointLight color="#ffaa00" intensity={4} distance={12} decay={2} />
 
-      {/* 1. Core */}
+      {/* 1. Core (Bright Center) */}
       <mesh position={[0,0,0]}>
         <sphereGeometry args={[0.15, 16, 16]} />
         <meshBasicMaterial color={[10, 10, 8]} toneMapped={false} /> 
       </mesh>
 
-      {/* 2. Main Body */}
-      <mesh position={[0, 0, -0.05]}> 
+      {/* 2. Main Body - Puffy Gold Cookie */}
+      <mesh position={[0, 0, -0.1]}> {/* Center Z based on (depth + bevelThickness)/2 approx */}
         <extrudeGeometry args={[starShape, extrudeSettings]} />
         <meshStandardMaterial 
           color="#ffd700"
@@ -626,7 +627,7 @@ function Star({ mixRef }: { mixRef: { current: number } }) {
       </mesh>
 
       {/* 3. Orbiting Light Points */}
-      <OrbitingParticles count={80} radius={1.0} />
+      <OrbitingParticles count={80} radius={1.2} />
 
     </group>
   )
