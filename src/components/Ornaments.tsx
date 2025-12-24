@@ -1,7 +1,7 @@
 import { useRef, useMemo, useLayoutEffect } from 'react'
 import { useFrame, extend, type ThreeElement } from '@react-three/fiber'
 import * as THREE from 'three'
-import { shaderMaterial, Billboard, Sparkles } from '@react-three/drei'
+import { shaderMaterial } from '@react-three/drei'
 import { generateOrnamentPosition } from '../utils/math'
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
@@ -553,9 +553,7 @@ function OrbitingParticles({ count = 60, radius = 1.2 }) {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
+          args={[positions, 3]}
         />
       </bufferGeometry>
       <pointsMaterial
