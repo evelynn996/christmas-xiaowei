@@ -1,6 +1,7 @@
 export const fireflyVertexShader = `
 uniform float uTime;
 uniform float uMix;
+uniform vec3 uCameraPos;
 
 attribute float aOffset;
 attribute float aSpeed;
@@ -14,11 +15,11 @@ float getOcclusion(vec3 particlePos, vec3 camPos) {
   vec3 rayDir = normalize(camPos - particlePos);
   float distToCam = length(camPos - particlePos);
 
-  // Cone params: Apex at (0,12,0), Base at (0,0,0), Radius 3.5
-  float H = 12.0;
-  float R = 3.5; // Slightly smaller than visual tree for soft edges
+  // Cone params - reduced radius for conservative occlusion
+  float H = 12.5;
+  float R = 3.5; // Reduced from 3.8 to be conservative
 
-  // Shift origin to Apex (0,12,0)
+  // Shift origin to Apex (0,H,0)
   vec3 P = particlePos - vec3(0.0, H, 0.0);
   vec3 D = rayDir;
 
@@ -26,32 +27,27 @@ float getOcclusion(vec3 particlePos, vec3 camPos) {
   float k2 = k * k;
 
   // Quadratic coefficients for ray-cone intersection
-  // Cone equation: x^2 + z^2 = k^2 * y^2
   float a = D.x * D.x + D.z * D.z - k2 * D.y * D.y;
   float b = 2.0 * (P.x * D.x + P.z * D.z - k2 * P.y * D.y);
   float c = P.x * P.x + P.z * P.z - k2 * P.y * P.y;
 
-  // Avoid division by zero for rays parallel to cone surface
+  // Avoid division by zero
   if (abs(a) < 0.0001) return 1.0;
 
   float delta = b * b - 4.0 * a * c;
-  if (delta < 0.0) return 1.0; // Ray misses infinite cone
+  if (delta < 0.0) return 1.0;
 
   float sqrtDelta = sqrt(delta);
   float t1 = (-b - sqrtDelta) / (2.0 * a);
   float t2 = (-b + sqrtDelta) / (2.0 * a);
 
-  // Check if intersection is valid:
-  // 1. Between particle and camera (0 < t < distToCam)
-  // 2. Within cone height (y in [-12, 0] since we shifted apex to 0)
-
+  // Check valid hits (between particle and camera, within cone height)
   float y1 = P.y + t1 * D.y;
   bool hit1 = t1 > 0.1 && t1 < distToCam && y1 > -H && y1 < 0.0;
 
   float y2 = P.y + t2 * D.y;
   bool hit2 = t2 > 0.1 && t2 < distToCam && y2 > -H && y2 < 0.0;
 
-  // If any valid intersection, particle is occluded
   return (hit1 || hit2) ? 0.0 : 1.0;
 }
 
@@ -90,7 +86,7 @@ void main() {
   vec4 worldPos = modelMatrix * vec4(pos, 1.0);
 
   // Geometric occlusion: hide fireflies behind the tree
-  float occlusion = getOcclusion(worldPos.xyz, cameraPosition);
+  float occlusion = getOcclusion(worldPos.xyz, uCameraPos);
 
   // Fade in/out at boundaries
   float fadeIn = smoothstep(0.0, 1.5, h);

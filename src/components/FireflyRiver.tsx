@@ -38,7 +38,8 @@ export function FireflyRiver({ mixRef }: FireflyRiverProps) {
       geometry: geo,
       uniforms: {
         uTime: { value: 0 },
-        uMix: { value: 0 }
+        uMix: { value: 0 },
+        uCameraPos: { value: new THREE.Vector3() }
       }
     }
   }, [])
@@ -47,11 +48,12 @@ export function FireflyRiver({ mixRef }: FireflyRiverProps) {
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = state.clock.elapsedTime
       shaderRef.current.uniforms.uMix.value = mixRef.current
+      shaderRef.current.uniforms.uCameraPos.value.copy(state.camera.position)
     }
   })
 
   return (
-    <points geometry={geometry}>
+    <points geometry={geometry} renderOrder={999}>
       <shaderMaterial
         ref={shaderRef}
         vertexShader={fireflyVertexShader}
