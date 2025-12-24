@@ -1,73 +1,89 @@
-# React + TypeScript + Vite
+# Christmas Tree
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A 3D interactive Christmas tree greeting card built with React Three Fiber.
 
-Currently, two official plugins are available:
+![Preview](docs/preview.gif)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- Interactive 3D Christmas tree with particle effects
+- Customizable recipient name (supports Chinese & English)
+- Shareable greeting links
+- Click to scatter/assemble animation
+- Snow, glow, and dreamy visual effects
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Demo
 
-## Expanding the ESLint configuration
+[Live Demo](https://your-domain.com)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Usage
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Create a Greeting
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. Visit the website
+2. Enter the recipient's name
+3. Choose "赠送给TA" to copy a shareable link, or "仅预览" to preview locally
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Share a Greeting
+
+Send the generated link to someone:
+```
+https://your-domain.com/?to=Name
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Prerequisites
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 20+
+- npm or yarn
+
+### Install
+
+```bash
+npm install
 ```
+
+### Run
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+## Deployment
+
+### Docker
+
+```bash
+docker build -t christmas-tree .
+docker run -p 80:80 christmas-tree
+```
+
+### Docker Compose
+
+```yaml
+version: '3'
+services:
+  christmas-tree:
+    build: .
+    ports:
+      - "80:80"
+```
+
+## Tech Stack
+
+- [React](https://react.dev/) - UI framework
+- [Three.js](https://threejs.org/) - 3D graphics
+- [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) - React renderer for Three.js
+- [Vite](https://vite.dev/) - Build tool
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+
+## License
+
+MIT

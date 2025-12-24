@@ -16,8 +16,8 @@ export function Overlay({ isTreeShape }: OverlayProps) {
     >
       <div
         style={{
-          padding: '12px 24px',
-          fontSize: '16px',
+          padding: '10px 20px',
+          fontSize: '13px',
           fontWeight: 500,
           color: 'rgba(255, 255, 255, 0.8)',
           background: 'rgba(0, 0, 0, 0.4)',

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Preload, useProgress } from '@react-three/drei'
 import { EffectComposer, Bloom, Noise, Vignette, ChromaticAberration } from '@react-three/postprocessing'
@@ -9,6 +9,7 @@ import { ChristmasTree } from './components/ChristmasTree'
 import { Background } from './components/Background'
 import { Overlay } from './components/Overlay'
 import { GreetingOverlay } from './components/GreetingOverlay'
+import { NameInputOverlay } from './components/NameInputOverlay'
 import { Snow } from './components/Snow'
 import { ResponsiveCamera } from './components/ResponsiveCamera'
 import { LoadingScreen } from './components/LoadingScreen'
@@ -19,9 +20,18 @@ export default function App() {
   const [fontsReady, setFontsReady] = useState(false)
   const [threeReady, setThreeReady] = useState(false)
   const [showContent, setShowContent] = useState(false)
+  const [recipientName, setRecipientName] = useState<string | null>(null)
   const pointerRef = useRef({ x: 0, y: 0 })
 
   const { progress } = useProgress()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const nameFromUrl = params.get('to')
+    if (nameFromUrl) {
+      setRecipientName(nameFromUrl)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -55,13 +65,23 @@ export default function App() {
   }
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (isLoading) return
+    if (isLoading || !recipientName) return
     const dist = Math.hypot(
       e.clientX - pointerRef.current.x,
       e.clientY - pointerRef.current.y
     )
     if (dist < 5) setIsTreeShape((prev) => !prev)
   }
+
+  const handleNameSubmit = useCallback((name: string) => {
+    setRecipientName(name)
+  }, [])
+
+  const handleBack = useCallback(() => {
+    setRecipientName(null)
+    setIsTreeShape(false)
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [])
 
   const cameraPosition = useMemo<[number, number, number]>(() => [0, 4, 18], [])
   const orbitTarget = useMemo<[number, number, number]>(() => [0, 4, 0], [])
@@ -129,8 +149,49 @@ export default function App() {
       </Canvas>
 
       <LoadingScreen visible={isLoading} progress={progress} />
-      <GreetingOverlay show={!isTreeShape && !isLoading} />
-      {!isLoading && <Overlay isTreeShape={isTreeShape} />}
+      <NameInputOverlay show={!isLoading && !recipientName} onSubmit={handleNameSubmit} />
+      {recipientName && (
+        <>
+          <GreetingOverlay show={!isTreeShape && !isLoading} name={recipientName} />
+          {!isLoading && <Overlay isTreeShape={isTreeShape} />}
+          {!isLoading && (
+            <div
+              style={{
+                position: 'fixed',
+                bottom: '40px',
+                left: '20px',
+                zIndex: 100,
+              }}
+            >
+              <button
+                onClick={handleBack}
+                style={{
+                  padding: '10px 24px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '20px',
+                  backdropFilter: 'blur(4px)',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)'
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 0, 0, 0.4)'
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)'
+                }}
+              >
+                Back
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

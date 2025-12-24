@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 
 interface GreetingOverlayProps {
   show: boolean
+  name: string
 }
 
-export function GreetingOverlay({ show }: GreetingOverlayProps) {
+export function GreetingOverlay({ show, name }: GreetingOverlayProps) {
+  const isEnglishOnly = /^[a-zA-Z\s]+$/.test(name)
   const particles = useMemo(() =>
     Array.from({ length: 15 }, (_, i) => ({
       id: i,
@@ -88,8 +90,8 @@ export function GreetingOverlay({ show }: GreetingOverlayProps) {
 
           <h1
             style={{
-              fontFamily: '"Noto Serif SC", serif',
-              fontWeight: 300,
+              fontFamily: isEnglishOnly ? '"Dancing Script", cursive' : '"Noto Serif SC", serif',
+              fontWeight: isEnglishOnly ? 700 : 300,
               fontSize: 'clamp(4rem, 12vw, 8rem)',
               margin: 0,
               lineHeight: 1.1,
@@ -98,7 +100,7 @@ export function GreetingOverlay({ show }: GreetingOverlayProps) {
               textShadow: '0 0 15px rgba(255, 215, 0, 0.6), 0 0 30px rgba(255, 180, 0, 0.3)',
             }}
           >
-            小薇
+            {name}
           </h1>
           <h2
             style={{
