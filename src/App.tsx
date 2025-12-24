@@ -25,11 +25,46 @@ export default function App() {
 
   const { progress } = useProgress()
 
+  const [isFromUrl, setIsFromUrl] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
   useEffect(() => {
+    // 1. Check for Admin Mode
     const params = new URLSearchParams(window.location.search)
+    const mode = params.get('mode')
+    if (mode === 'admin') {
+      setIsAdmin(true)
+    }
+
+    // 2. Try to get name from Path (e.g. domain.com/Base64Code)
+    const path = window.location.pathname.slice(1) // remove leading '/'
+    if (path && !path.includes('/') && !path.includes('.')) {
+      try {
+        // Double decode process: Base64 -> URI Component
+        const decodedName = decodeURIComponent(escape(window.atob(path)))
+        if (decodedName) {
+            setRecipientName(decodedName)
+            setIsFromUrl(true)
+            return // Stop if found in path
+        }
+      } catch (e) {
+        // Is not base64 or valid, ignore and try query params
+        console.log('Path is not a valid base64 name')
+      }
+    }
+
+    // 3. Fallback: Check 'to' parameter (Legacy support)
     const nameFromUrl = params.get('to')
     if (nameFromUrl) {
-      setRecipientName(nameFromUrl)
+      // Try base64 first for 'to' param as well
+      try {
+          const decodedName = decodeURIComponent(escape(window.atob(nameFromUrl)))
+          setRecipientName(decodedName)
+      } catch {
+          // Fallback to plain text
+          setRecipientName(nameFromUrl)
+      }
+      setIsFromUrl(true)
     }
   }, [])
 
@@ -149,12 +184,12 @@ export default function App() {
       </Canvas>
 
       <LoadingScreen visible={isLoading} progress={progress} />
-      <NameInputOverlay show={!isLoading && !recipientName} onSubmit={handleNameSubmit} />
+      <NameInputOverlay show={!isLoading && !recipientName && isAdmin} onSubmit={handleNameSubmit} />
       {recipientName && (
         <>
           <GreetingOverlay show={!isTreeShape && !isLoading} name={recipientName} />
           {!isLoading && <Overlay isTreeShape={isTreeShape} />}
-          {!isLoading && (
+          {!isLoading && !isFromUrl && (
             <div
               style={{
                 position: 'fixed',

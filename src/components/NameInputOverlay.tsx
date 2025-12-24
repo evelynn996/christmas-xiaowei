@@ -21,7 +21,8 @@ export function NameInputOverlay({ show, onSubmit }: NameInputOverlayProps) {
 
   const handleGift = useCallback(async () => {
     if (!name.trim()) return
-    const shareUrl = `${window.location.origin}${window.location.pathname}?to=${encodeURIComponent(name.trim())}`
+    const encodedName = window.btoa(unescape(encodeURIComponent(name.trim())))
+    const shareUrl = `${window.location.origin}/${encodedName}`
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
