@@ -11,7 +11,7 @@ interface ChristmasTreeProps {
 }
 
 export function ChristmasTree({ isTreeShape }: ChristmasTreeProps) {
-  const mixRef = useRef({ current: 1 })
+  const mixRef = useRef({ current: 0 })
 
   useFrame((_, delta) => {
     const target = isTreeShape ? 1 : 0

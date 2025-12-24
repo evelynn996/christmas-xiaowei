@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import { EffectComposer, Bloom, Noise, Vignette, ChromaticAberration } from '@react-three/postprocessing'
@@ -9,12 +9,30 @@ import { ChristmasTree } from './components/ChristmasTree'
 import { Background } from './components/Background'
 import { Overlay } from './components/Overlay'
 import { Snow } from './components/Snow'
+import { ResponsiveCamera } from './components/ResponsiveCamera'
 
 export default function App() {
-  const [isTreeShape, setIsTreeShape] = useState(true)
+  const [isTreeShape, setIsTreeShape] = useState(false)
+  const pointerRef = useRef({ x: 0, y: 0 })
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointerRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const dist = Math.hypot(
+      e.clientX - pointerRef.current.x,
+      e.clientY - pointerRef.current.y
+    )
+    if (dist < 5) setIsTreeShape((prev) => !prev)
+  }
 
   return (
-    <>
+    <div
+      style={{ width: '100vw', height: '100vh', touchAction: 'none' }}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+    >
       <Canvas
         gl={{
           toneMapping: CineonToneMapping,
@@ -24,6 +42,7 @@ export default function App() {
         style={{ background: '#050a14' }}
       >
         <PerspectiveCamera makeDefault position={[0, 4, 18]} fov={50} />
+        <ResponsiveCamera />
         <OrbitControls
           target={[0, 4, 0]}
           minDistance={10}
@@ -68,7 +87,7 @@ export default function App() {
         </EffectComposer>
       </Canvas>
 
-      <Overlay isTreeShape={isTreeShape} onToggle={() => setIsTreeShape(!isTreeShape)} />
-    </>
+      <Overlay isTreeShape={isTreeShape} />
+    </div>
   )
 }

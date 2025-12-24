@@ -1,9 +1,8 @@
 interface OverlayProps {
   isTreeShape: boolean
-  onToggle: () => void
 }
 
-export function Overlay({ isTreeShape, onToggle }: OverlayProps) {
+export function Overlay({ isTreeShape }: OverlayProps) {
   return (
     <div
       style={{
@@ -12,33 +11,22 @@ export function Overlay({ isTreeShape, onToggle }: OverlayProps) {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 100,
+        pointerEvents: 'none',
       }}
     >
-      <button
-        onClick={onToggle}
+      <div
         style={{
-          padding: '16px 32px',
+          padding: '12px 24px',
           fontSize: '16px',
-          fontWeight: 600,
-          color: '#fff',
-          background: 'linear-gradient(135deg, #ff69b4 0%, #da70d6 50%, #a0d2eb 100%)',
-          border: 'none',
+          fontWeight: 500,
+          color: 'rgba(255, 255, 255, 0.8)',
+          background: 'rgba(0, 0, 0, 0.4)',
           borderRadius: '30px',
-          cursor: 'pointer',
-          boxShadow: '0 4px 20px rgba(255, 105, 180, 0.4)',
-          transition: 'all 0.3s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.05)'
-          e.currentTarget.style.boxShadow = '0 6px 30px rgba(255, 105, 180, 0.6)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)'
-          e.currentTarget.style.boxShadow = '0 4px 20px rgba(255, 105, 180, 0.4)'
+          backdropFilter: 'blur(4px)',
         }}
       >
-        {isTreeShape ? '✨ Scatter Magic' : '🎄 Assemble Tree'}
-      </button>
+        {isTreeShape ? 'Click anywhere to scatter' : 'Click anywhere to assemble'}
+      </div>
     </div>
   )
 }
